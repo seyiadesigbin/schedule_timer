@@ -1,0 +1,24 @@
+QLineEdit, QPushButton{
+    padding: 8px;
+}
+
+QLineEdit{
+    border: 10px;
+}
+
+QLineEdit:focus{
+    border: 1px solid #65BDF7;
+    background-color: #2B2D30;
+}
+
+#rowNum{
+    font-weight: bold;
+}
+
+#timeIcon{
+    background-color:
+}
+
+#scheduleStatus{
+    background-color: #F44336;
+}

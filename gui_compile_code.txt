@@ -1,0 +1,6 @@
+ python -m nuitka --follow-imports main.py --standalone --enable-plugin=pyside6 --disable-console
+
+ python -m nuitka --follow-imports main.py --standalone --enable-plugin=pyside6  --onefile
+ --include-data-dir=resources=resources --windows-icon-from-ico=icon.ico --output-filename=ScheduleTimer
+
+python -m nuitka --follow-imports main.py --standalone --enable-plugin=pyside6  --onefile --include-data-dir=resources=resources --windows-icon-from-ico=icon.ico --output-filename="ScheduleTimer- Beta Version" --remove-output --disable-console --product-name="ScheduleTimer- Beta Version" --file-version=1.0 --product-version=1.0 --file-description="ScheduleTimer- Beta Version"

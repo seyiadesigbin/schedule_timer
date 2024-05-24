@@ -1,0 +1,35 @@
+#mainWindow{
+    background-color: #1E1E1E;
+}
+
+#scrollArea{
+    border: none;
+}
+
+#toolbar{
+    border: none;
+    margin-top: 2px;
+}
+
+#scheduleWidget{
+    background-color: #1E1E1E;
+}
+
+#displaySettingsBox{
+    padding-top: 10px;
+}
+
+#toolbarButton{
+    color: grey;
+    background-color: transparent;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+#toolbarButton:hover{
+    background-color: #2B2D30;
+}
+
+#scheduleForm{
+    background-color: red!important;
+}

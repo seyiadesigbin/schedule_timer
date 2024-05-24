@@ -1,0 +1,73 @@
+/* Set the default font family of the texts */
+*{
+    font-family: 'Arial';
+}
+
+/* Set the font color of these following widgets */
+QLabel, QGroupBox, QPushButton, QLineEdit{
+    color: white;
+}
+
+QGroupBox{
+    border: 0.5px solid grey;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+QGroupBox:title{
+    subcontrol-origin: margin;
+    left: 7px;
+}
+
+QPushButton{
+    background-color: #3C3C3C;
+    border-radius: 5px;
+    padding: 3px;
+}
+
+QPushButton:hover{
+    background-color: #8C8C8C;
+}
+
+QPushButton:checked{
+    background-color: #0078D4;
+}
+
+QLineEdit{
+    background-color: #2D2D2D;
+}
+
+QScrollBar:vertical{
+    background-color: #1E1E1E;
+    border-radius: 20px;
+    width: 5px;
+}
+
+QScrollBar::add-line:vertical {
+    color: red; /* Set the height of the add button */
+}
+
+QScrollBar::handle:vertical{
+    border: 0.5px solid transparent;
+    border-radius: 5px;
+    width: 5px;
+    background-color: #959595;
+}
+
+QComboBox{
+    padding: 5px;
+    color: grey;
+}
+
+QComboBox:hover{
+    color: white;
+}
+
+QMessageBox{
+    background-color: #1E1F22;
+}
+
+QMessageBox QAbstractButton{
+    padding: 3px 15px 3px 15px;
+    border: 1px solid #0078D4;
+}

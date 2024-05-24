@@ -1,0 +1,27 @@
+*{
+    font-family: Arial;
+    color: white;
+    padding: 5px;
+}
+
+#background{
+    background-color: #36383B;
+}
+
+#title{
+    font-size: 20px;
+}
+
+#description{
+    qproperty-alignment: AlignTop;
+}
+
+QPushButton{
+    padding: 5px;
+    qproperty-alignment: AlignLeft;
+}
+
+#cancelButton{
+    margin-bottom: 30px;
+    background: transparent;
+}
