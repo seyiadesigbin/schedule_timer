@@ -1,19 +1,23 @@
 # This file contains all variables and functions that are used across multiple modules.
 
 from pathlib import Path
+import os
 
 PARENT_DIR = Path(__file__).parent.resolve()  # Get the directory the program is running from.
 RESOURCES_DIR = Path(PARENT_DIR / "resources")
 STYLESHEET_DIR = Path(RESOURCES_DIR / "stylesheets")
 ICONS_DIR = Path(RESOURCES_DIR / "icons")
-
 APP_TITLE = "ScheduleTimer- Beta Version"
 APP_VERSION = "v1.0"
+
+DOCUMENTS_DIR = Path.home()/"Documents"
 
 
 # Icons
 APP_ICON_DIR = str(Path(ICONS_DIR/"app_icon.png"))
 ADD_ICON_DIR = str(Path(ICONS_DIR/"add.png"))
+IMPORT_ICON_DIR = str(Path(ICONS_DIR/"import.png"))
+EXPORT_ICON_DIR = str(Path(ICONS_DIR/"export.png"))
 HELP_ICON_DIR = str(Path(ICONS_DIR/"help.png"))
 INFO_ICON_DIR = str(Path(ICONS_DIR/"info.png"))
 RESET_ICON_DIR = str(Path(ICONS_DIR/"reset_yellow.png"))
@@ -51,6 +55,11 @@ def load_stylesheet(stylesheet_file_name) -> str:
     with open(file_dir, mode="r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
         return stylesheet
+
+def get_default_save_dir():
+    """Returns the path to the user's documents directory"""
+
+    return DOCUMENTS_DIR/"ScheduleTimer Exports"
 
 
 # ADD_ICON_DIR = "resources/icons/add.png"

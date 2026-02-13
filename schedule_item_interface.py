@@ -23,9 +23,11 @@ class ScheduleItem(QWidget):
 
         schedule_item_layout = QGridLayout()
 
+        self.schedule_num = schedule_num # Create attribute to store the number ID of each schedule object
+
         self.schedule_row_num_label = QLabel()
         self.schedule_row_num_label.setObjectName("rowNum")
-        self.schedule_row_num_label.setText(str(schedule_num))
+        self.schedule_row_num_label.setText(str(self.schedule_num))
         self.schedule_row_num_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.schedule_row_num_label.setFixedWidth(20)
 
@@ -146,6 +148,48 @@ class ScheduleItem(QWidget):
         layout.addWidget(frame)
         self.setLayout(schedule_item_layout)
 
+
+    def get_session_title(self):
+        """Returns the session title
+
+        :returns: Session title
+        :rtype: string
+
+        """
+
+        return self.session_title_input.text()
+
+    def get_minutes(self) -> int:
+        """Returns the number of minutes set
+
+        :returns: Number of minutes set
+        :rtype: int
+
+        """
+
+        if self.minutes_input.text() == "":
+            minutes = 0
+        else:
+            minutes = int(self.minutes_input.text())
+
+        return minutes
+
+    def get_seconds(self) -> int:
+        """Returns the number of seconds set
+
+        :returns: Number of seconds set
+        :rtype: int
+
+        """
+
+        if self.seconds_input.text() == "":
+            seconds = 0
+        else:
+            seconds = int(self.seconds_input.text())
+
+        return seconds
+
+
     def get_timer_value(self) -> int:
         """Retrieves the schedule's set time in hours and/or seconds, and converts to seconds
 
@@ -153,19 +197,15 @@ class ScheduleItem(QWidget):
         :rtype: int
 
         """
-        if self.minutes_input.text() == "":
-            minutes = 0
-        else:
-            minutes = int(self.minutes_input.text())
-
-        if self.seconds_input.text() == "":
-            seconds = 0
-        else:
-            seconds = int(self.seconds_input.text())
+        minutes = self.get_minutes()
+        seconds = self.get_seconds()
 
         total_seconds = (minutes * 60) + seconds
 
         return total_seconds
+
+    def set_timer_values(self):
+        """Sets the minutes and seconds values of the schedule"""
 
     def start_timer(self):
         pass

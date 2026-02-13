@@ -10,6 +10,8 @@ from timer_window import TimerWindow  # Import timer window module
 from schedule_item_interface import ScheduleItem
 from toolbar_interface import AboutDialog, CreditsDialog  # Import About and Credits windows
 from globals import *
+from export_schedule import ExportSchedule
+from import_schedule import ImportSchedule
 
 ADD_TIME = ["+15s", "+30s", "+1m", "+5m", "+15m", "+30m"]
 MINUS_TIME = ["-15s", "-30s", "-1m", "-5m", "-15m", "-30m"]
@@ -233,8 +235,8 @@ class MainWindow(QMainWindow):
         schedule_group_box.setContentsMargins(5, 10, 5, 5)
 
         # Create button to add schedule item
-
         add_schedule_item_button = QPushButton("")
+        add_schedule_item_button.setToolTip("Add Schedule")
         add_icon = QIcon(ADD_ICON_DIR)
         add_schedule_item_button.setIcon(add_icon)
         add_schedule_item_button.setMaximumWidth(50)
@@ -242,8 +244,28 @@ class MainWindow(QMainWindow):
         add_schedule_item_button.clicked.connect(self.add_schedule_item)  # Add a new schedule item when
         # button is clicked
 
+        # Create button to import schedule
+        import_schedule_button = QPushButton("")
+        import_schedule_button.setToolTip("Import Schedule")
+        import_icon = QIcon(IMPORT_ICON_DIR)
+        import_schedule_button.setIcon(import_icon)
+        import_schedule_button.setMaximumWidth(50)
+        import_schedule_button.setStyleSheet("padding: 4px;")
+        import_schedule_button.clicked.connect(self.import_schedule)
+
+        # Create button to export schedule
+        export_schedule_button = QPushButton("")
+        export_schedule_button.setToolTip("Export Schedule")
+        export_icon = QIcon(EXPORT_ICON_DIR)
+        export_schedule_button.setIcon(export_icon)
+        export_schedule_button.setMaximumWidth(50)
+        export_schedule_button.setStyleSheet("padding: 4px;")
+        export_schedule_button.clicked.connect(self.export_schedule)
+
         button_layout = QHBoxLayout()
         button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        button_layout.addWidget(export_schedule_button)
+        button_layout.addWidget(import_schedule_button)
         button_layout.addWidget(add_schedule_item_button)
 
         # Create form layout to hold schedule items
@@ -351,9 +373,95 @@ class MainWindow(QMainWindow):
 
         # print(f"Added: Items list length: {len(self.schedule_items)} || Form row count: {self.schedule_list_form.rowCount()}")
 
+    def export_schedule(self):
+        """Exports the current schedule list to the file"""
+
+        new_export = ExportSchedule(self.schedule_items)
+
+        new_export.export_schedule_data()
+
+    def import_schedule(self):
+        """Imports a saved schedule from file"""
+
+        import_schedule = ImportSchedule()
+
+        try:
+            schedule_to_import = import_schedule.get_schedule_data()
+        except TypeError:
+            print("Dialog box closed")
+        else:
+            # Authenticate the schedule file, to be sure it is a supported file type
+            if import_schedule.is_valid_file():
+                # Check if the schedule to be imported contains data. If no, terminate the import process
+                if len(schedule_to_import) == 0:
+                    QMessageBox.information(self, "Import Failed", "The selected schedule is empty.")
+                else:
+                    # Get user's confirmation to import schedule.
+                    # Importing a new schedule will stop any running timer and clear the existing schedule.
+
+                    # Set the prompt text.
+                    text = ""
+                    if self.timer_window.active_schedule.start_button.isHidden():
+                        text = "Are you sure you want to import this schedule? The running timer will be stopped and current schedule will be cleared."
+                    else:
+                        text = "Are you sure you want to import this schedule? The current schedule will be cleared."
+
+                        confirm_import_dialog = (
+                            QMessageBox.question(self,
+                                                 "Confirm Import",
+                                                 text))
+
+                        # If user confirms to import schedule
+                        if confirm_import_dialog == QMessageBox.Yes:
+
+                            # Proceed to clear the schedule item list.
+                            self.timer_window.active_schedule = None  # disable the active schedule
+
+                            # Delete all items in the schedule, starting from the last item in the list
+                            for schedule_item in reversed(self.schedule_items):
+                                self.delete_schedule_from_list(schedule_item)
+
+                            # For each key in the data to be imported, create/add a new schedule item and update its title and time values accordingly
+                            for schedule_item_id in schedule_to_import:
+                                session_title = schedule_to_import[schedule_item_id]["Session Title"]
+                                minutes = schedule_to_import[schedule_item_id]["Minutes"]
+                                seconds = schedule_to_import[schedule_item_id]["Seconds"]
+
+                                # Add new schedule
+                                self.add_schedule_item()
+
+                                index = int(schedule_item_id) - 1
+
+                                self.schedule_items[index].session_title_input.setText(session_title)
+                                self.schedule_items[index].minutes_input.setText(str(minutes))
+                                self.schedule_items[index].seconds_input.setText(str(seconds))
+
+                                # self.schedule_items[schedule_item_id - 1].in
+                                # print(session_title, time_value)
+
+                            # Set first item on the list as active schedule and set focus on its session title
+                            self.reset_timer(self.schedule_items[0])
+                            self.schedule_items[0].session_title_input.setFocus()
+            else:
+                QMessageBox.information(self, "Import Failed", "The selected file is not a valid schedule.")
+
+
+
+
+        # # Remove all current schedule items
+        # items_count = len(self.schedule_items)
+        # print(items_count)
+        #
+        # for n in range(items_count):
+        #     print(n)
+        #
+        # # for schedule_item in self.schedule_items:
+        # #     if schedule_item.schedule_num > 1:
+        # #         self.delete_schedule_from_list(schedule_item)
+
     def delete_schedule_from_list(self, schedule_item):
 
-        """Deletes a schedule from the list, if it is not currently active
+        """Deletes a schedule item from the list, if it is not currently active
 
         :param schedule_item: The schedule item to be deleted
         :type schedule_item: ScheduleItem
@@ -390,7 +498,7 @@ class MainWindow(QMainWindow):
         """
 
         self.running_seconds = schedule_item.get_timer_value()  # Get the total seconds inputted
-        session_title = schedule_item.session_title_input.text()  # Get the session title
+        session_title = schedule_item.get_session_title()  # Get the session title
 
         self.timer_window.set_timer_window_values(self.running_seconds,
                                                   session_title)  # Update the timer window with the set
@@ -684,6 +792,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         # Confirm app closure if an active timer is running
+        # This checks if the start button of the active schedule is hidden, which indicates that its timer is currently running
         if self.timer_window.active_schedule.start_button.isHidden():
             confirm_exit_dialog = (
                 QMessageBox.question(self,
