@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QHBoxLayout, QLineEdit, QToolButton, QFrame, \
-    QLayout
+    QLayout, QVBoxLayout
 from PySide6.QtGui import QIcon, QAction, QPainter, QColor, QIntValidator
 from PySide6.QtCore import Signal, Qt, QSize
 from globals import *
@@ -91,6 +91,18 @@ class ScheduleItem(QWidget):
         session_title_input_layout.addWidget(self.session_title_input)
         session_title_input_layout.addWidget(self.set_visibility_button)
 
+        # Create minister name input field, shown under the timer as "Ministering Now"
+        self.minister_input = QLineEdit("")
+        self.minister_input.setPlaceholderText("Minister")
+        self.minister_input.setToolTip("Name of the minister, shown under the timer as \"Ministering Now\"")
+        self.minister_input.setObjectName("ministerName")
+
+        # Layout to stack the session title and minister name fields
+        session_details_layout = QVBoxLayout()
+        session_details_layout.setSpacing(4)
+        session_details_layout.addLayout(session_title_input_layout)
+        session_details_layout.addWidget(self.minister_input)
+
         # Reset button
         reset_button_icon = QIcon(RESET_ICON_DIR)
         self.reset_button = QPushButton()
@@ -129,7 +141,7 @@ class ScheduleItem(QWidget):
 
         # Add all widgets to row layout
         schedule_item_layout.addWidget(self.schedule_row_num_label, 0, 0)
-        schedule_item_layout.addLayout(session_title_input_layout, 0, 1)
+        schedule_item_layout.addLayout(session_details_layout, 0, 1)
         schedule_item_layout.addLayout(time_container, 0, 2)
         schedule_item_layout.addWidget(self.reset_button, 0, 3)
         schedule_item_layout.addWidget(self.start_button, 0, 4)
@@ -158,6 +170,16 @@ class ScheduleItem(QWidget):
         """
 
         return self.session_title_input.text()
+
+    def get_minister_name(self):
+        """Returns the minister's name
+
+        :returns: Minister's name
+        :rtype: string
+
+        """
+
+        return self.minister_input.text()
 
     def get_minutes(self) -> int:
         """Returns the number of minutes set

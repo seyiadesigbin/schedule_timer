@@ -1,49 +1,73 @@
 from PySide6.QtWidgets import (QWidget, QLabel, QVBoxLayout, QGraphicsDropShadowEffect, QHBoxLayout, QSizePolicy)
-from PySide6.QtGui import Qt, QColor, QFont, QIcon
-from PySide6.QtCore import Signal, QTimer
-from globals import APP_TITLE, APP_ICON_DIR, load_stylesheet
+from PySide6.QtGui import Qt, QColor, QFont, QIcon, QImage, QPainter, QPixmap, QRegion
+from PySide6.QtCore import Signal, QTimer, QPoint
+from globals import APP_TITLE, APP_ICON_DIR, APP_FONT_FAMILY
+
+DEFAULT_BACKGROUND_COLOR = "#1E1E1E"
+TIMER_CENTRE_HEIGHT_RATIO = 0.45  # The timer is centred at this fraction of the window height, a little above the middle
 
 TIMER_TEXT_DEFAULT_STYLE = """
     font-size:  300pt;
     color: white;
     qproperty-alignment: AlignCenter;
-    font-family: Calibri;
+    font-family: Barlow;
+    font-weight: 600;
 """
 
 TIMER_TEXT_DEFAULT_STYLE_HOUR = """
     font-size:  250pt;
     color: white;
     qproperty-alignment: AlignCenter;
-    font-family: Calibri;
+    font-family: Barlow;
+    font-weight: 600;
 """
 
 TIMER_TEXT_TIME_UP_STYLE_WITH_TIME_UP_LABEL = """
     font-size:  200pt;
     color: #F44336;
     qproperty-alignment: AlignCenter;
-    font-family: Calibri;
+    font-family: Barlow;
+    font-weight: 600;
 """
 
 TIMER_TEXT_TIME_UP_STYLE = """
     font-size:  300pt;
     color: #F44336;
     qproperty-alignment: AlignCenter;
-    font-family: Calibri;
+    font-family: Barlow;
+    font-weight: 600;
 """
 
 TIMER_TEXT_TIME_UP_STYLE_HOUR = """
     font-size:  230pt;
     color: #F44336;
     qproperty-alignment: AlignCenter;
-    font-family: Calibri;
+    font-family: Barlow;
+    font-weight: 600;
 """
 
 SESSION_LABEL_STYLE = f"""
-    font-size: 60px;
+    font-size: 100px;
     qproperty-alignment: AlignCenter;
-    margin-top: 20px;
-    color: #65BDF7;
-    font-family: Calibri;
+    margin-top: 30px;
+    color: #7CCBFF;
+    font-family: Barlow;
+    font-weight: 700;
+"""
+
+MINISTER_CAPTION_STYLE = """
+    font-size: 40px;
+    qproperty-alignment: AlignCenter;
+    color: #FFC857;
+    font-family: Barlow;
+    font-weight: 700;
+"""
+
+MINISTER_NAME_STYLE = """
+    font-size: 80px;
+    qproperty-alignment: AlignCenter;
+    color: white;
+    font-family: Barlow;
     font-weight: 600;
 """
 
@@ -51,12 +75,10 @@ TIME_UP_LABEL_STYLE = """
     font-size: 200pt;
     qproperty-alignment: AlignCenter;
     margin-bottom: 40px;
-    text-shadow: 20px;
     color: white;
+    font-family: Barlow;
+    font-weight: 700;
 """
-
-STYLESHEET_FILE_NAME = "timer_window_stylesheet.qss"
-
 
 class TimerWindow(QWidget):
 
@@ -68,12 +90,15 @@ class TimerWindow(QWidget):
     def __init__(self):
         super().__init__()
 
-        stylesheet = load_stylesheet(STYLESHEET_FILE_NAME)
-
         self.setWindowTitle(APP_TITLE)
         self.setWindowIcon(QIcon(APP_ICON_DIR))
         self.setObjectName("main")
-        self.setStyleSheet(stylesheet)
+
+        # The background is painted in paintEvent, so it can be a solid color, an image, or transparent
+        self.background_color = QColor(DEFAULT_BACKGROUND_COLOR)
+        self.background_image = None  # QPixmap, when an image background is selected
+        self.background_is_transparent = False
+        self.text_shadows = []  # Drop shadows on the text, used with image and transparent backgrounds
 
         self.time_up_flash_timer = QTimer()
         self.time_up_flash_timer.timeout.connect(self.toggle_time_up_flash_effect)
@@ -86,46 +111,64 @@ class TimerWindow(QWidget):
 
         self.window_is_active = True
 
-        self.display_layout = QVBoxLayout()
-
         # Textbox to hold session title for default layout
-        self.session_title_label = QLabel()
+        self.session_title_label = QLabel(self)
         # self.session_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         self.session_title_label.setStyleSheet(SESSION_LABEL_STYLE)
+        self.session_title_label.setWordWrap(True)  # Wrap long titles instead of cutting them off
 
         # Textbox to hold timer values for default layout
         # self.timer_label = QLabel(f"0{self.minutes}:0{self.seconds}")
-        self.timer_label = QLabel()
+        self.timer_label = QLabel(self)
         self.timer_label.setStyleSheet(TIMER_TEXT_DEFAULT_STYLE)
         self.timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Barlow's digits have different widths by default, which makes the countdown shift sideways as it runs.
+        # Tabular figures give every digit the same width
+        timer_font = QFont(APP_FONT_FAMILY)
+        timer_font.setFeature(QFont.Tag("tnum"), 1)
+        self.timer_label.setFont(timer_font)
 
         # Font settings for timer label
         # timer_font = QFont()
         # timer_font.setPointSize(200)
 
+        # "Ministering Now" panel, shown under the timer with the name of the minister responsible for the session.
+        # It is shown when enabled in the display settings and the active schedule has a minister's name
+        self.minister_caption_label = QLabel("MINISTERING NOW")
+        self.minister_caption_label.setStyleSheet(MINISTER_CAPTION_STYLE)
+
+        self.minister_name_label = QLabel()
+        self.minister_name_label.setStyleSheet(MINISTER_NAME_STYLE)
+        self.minister_name_label.setWordWrap(True)
+
+        minister_layout = QVBoxLayout()
+        minister_layout.setContentsMargins(0, 0, 0, 0)
+        minister_layout.setSpacing(0)
+        minister_layout.addWidget(self.minister_caption_label)
+        minister_layout.addWidget(self.minister_name_label)
+
+        self.minister_panel = QWidget(self)
+        self.minister_panel.setLayout(minister_layout)
+        self.minister_panel.hide()
+
+        self.minister_is_enabled = True
+        self.minister_name = ""
+
         # Textbox to hold "Time Up" text
-        self.time_up_label = QLabel("Time Up")
+        self.time_up_label = QLabel("Time Up", self)
         self.time_up_label.setStyleSheet(TIME_UP_LABEL_STYLE)
         self.time_up_label.hide()
         self.show_time_up_label = False
-
-        # Add widgets to the default display layout (Session title and timer)
-        self.display_layout.addWidget(self.session_title_label)
-        self.display_layout.addStretch()
-        self.display_layout.addWidget(self.timer_label)
-        self.display_layout.addStretch()
-        self.display_layout.addWidget(self.time_up_label)
 
         self.active_schedule = None
 
         self.first_negative_run = True
 
-        self.setLayout(self.display_layout)
-
         # Emit signal
         self.window_is_updated()
 
-    def set_timer_window_values(self, total_seconds: int, session_title: str = ""):
+    def set_timer_window_values(self, total_seconds: int, session_title: str = "", minister_name: str = ""):
         """Set the timer values (hours, minutes, and seconds) and session title in the timer window
 
         This function is called when the reset or start button is clicked
@@ -136,6 +179,9 @@ class TimerWindow(QWidget):
         :param session_title: Title of current session
         :type session_title: str
 
+        :param minister_name: Name of the minister responsible for the current session
+        :type minister_name: str
+
         """
 
         self.first_negative_run = True
@@ -143,6 +189,7 @@ class TimerWindow(QWidget):
         self.update_timer_window_labels(total_seconds)
 
         self.session_title_label.setText(session_title.upper())
+        self.set_minister_name(minister_name)
 
         # Emit signal
         self.window_is_updated()
@@ -251,6 +298,8 @@ class TimerWindow(QWidget):
 
         self.timer_label.setText(timer_text)
 
+        self.refresh_minister_panel_visibility()  # The minister panel gives way to the Time Up label
+
     def update_running_timer(self, total_seconds):
         """Updates the timer window with the most recent time value
 
@@ -274,6 +323,176 @@ class TimerWindow(QWidget):
 
         # Emit signal
         self.window_is_updated()
+
+    def set_minister_name(self, minister_name: str):
+        """Sets the name shown under "Ministering Now" """
+
+        self.minister_name = minister_name.strip()
+        self.minister_name_label.setText(self.minister_name.upper())
+        self.update_minister_panel()
+
+    def set_minister_enabled(self, enabled: bool):
+        """Turns the "Ministering Now" panel on or off. Called when the minister toggle in the display settings changes"""
+
+        self.minister_is_enabled = enabled
+        self.update_minister_panel()
+
+    def update_minister_panel(self):
+        """Shows the "Ministering Now" panel if it is enabled and there is a name to show, and hides it otherwise
+
+        The panel is also hidden while the Time Up alert is showing, since the alert takes the space under the timer
+
+        """
+
+        self.refresh_minister_panel_visibility()
+        self.window_is_updated()
+
+    def refresh_minister_panel_visibility(self):
+        self.minister_panel.setVisible(self.minister_is_enabled and self.minister_name != ""
+                                       and self.time_up_label.isHidden())
+
+    def position_labels(self):
+        """Places the labels in the window
+
+        The labels are positioned directly rather than with a layout, so the timer always sits at the same height
+        (TIMER_CENTRE_HEIGHT_RATIO) no matter how tall the title is or whether the minister panel is shown. The title
+        is at the top, the minister panel just under the timer, and the Time Up label at the bottom
+
+        """
+
+        width = self.width()
+        height = self.height()
+
+        def label_height(widget):
+            return widget.heightForWidth(width) if widget.hasHeightForWidth() else widget.sizeHint().height()
+
+        self.session_title_label.setGeometry(0, 0, width, label_height(self.session_title_label))
+
+        timer_height = label_height(self.timer_label)
+        timer_top = round(height * TIMER_CENTRE_HEIGHT_RATIO - timer_height / 2)
+        self.timer_label.setGeometry(0, timer_top, width, timer_height)
+
+        self.minister_panel.setGeometry(0, timer_top + timer_height, width, label_height(self.minister_panel))
+
+        time_up_height = label_height(self.time_up_label)
+        self.time_up_label.setGeometry(0, height - time_up_height, width, time_up_height)
+
+    def resizeEvent(self, event):
+        self.position_labels()
+
+    def set_background_color(self, color: QColor):
+        """Sets a solid color as the timer window's background"""
+
+        self.background_color = QColor(color)
+        self.background_image = None
+        self.set_window_transparency(False)
+        self.update_background()
+
+    def set_background_image(self, image: QPixmap):
+        """Sets an image as the timer window's background. The image is scaled to cover the whole window"""
+
+        self.background_image = image
+        self.set_window_transparency(False)
+        self.update_background()
+
+    def set_background_transparent(self):
+        """Removes the timer window's background, so only the text is shown
+
+        On a monitor, whatever is behind the window shows through. Over NDI, the frames are sent with an alpha
+        channel, so receivers such as OBS and vMix can key the timer over other video
+
+        """
+
+        self.background_image = None
+        self.set_window_transparency(True)
+        self.update_background()
+
+    def update_background(self):
+        """Repaints the window after a background change, and adds a shadow to the text when the background is an
+        image or transparent, to keep it readable over busy or bright content"""
+
+        text_needs_shadow = self.background_image is not None or self.background_is_transparent
+
+        # References are kept, since PySide deletes an effect once nothing in Python refers to it
+        self.text_shadows = []
+
+        for label in (self.session_title_label, self.timer_label, self.minister_panel):
+            if text_needs_shadow:
+                shadow = QGraphicsDropShadowEffect()
+                shadow.setColor(QColor(0, 0, 0, 220))
+                shadow.setBlurRadius(40)
+                shadow.setOffset(0, 4)
+                label.setGraphicsEffect(shadow)
+                self.text_shadows.append(shadow)
+            else:
+                label.setGraphicsEffect(None)
+
+        self.update()
+        self.window_is_updated()
+
+    def set_window_transparency(self, transparent: bool):
+        """Turns the window's see-through background on or off
+
+        Windows only applies transparency when the native window is created, so the native window is destroyed and
+        created again with the new settings, then shown again if it was visible
+
+        """
+
+        if transparent == self.background_is_transparent:
+            return
+
+        self.background_is_transparent = transparent
+
+        was_visible = self.isVisible()
+
+        self.hide()
+        self.destroy()  # Destroys only the native window. The widget and its contents are kept
+
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, transparent)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, transparent)
+
+        if was_visible:
+            if self.display_monitor is not None:
+                self.setGeometry(self.display_monitor.geometry())
+            self.show_timer()
+
+    def paintEvent(self, event):
+        """Paints the selected background behind the labels"""
+
+        if self.background_is_transparent:
+            return
+
+        painter = QPainter(self)
+
+        if self.background_image is not None:
+            # Scale the image to cover the window, keeping its aspect ratio, and crop the overflow evenly
+            scaled_image = self.background_image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                                        Qt.TransformationMode.SmoothTransformation)
+            x = (scaled_image.width() - self.width()) // 2
+            y = (scaled_image.height() - self.height()) // 2
+            painter.drawPixmap(0, 0, scaled_image, x, y, self.width(), self.height())
+        else:
+            painter.fillRect(self.rect(), self.background_color)
+
+        painter.end()
+
+    def snapshot(self) -> QImage:
+        """Renders the timer window to an image, keeping transparent areas transparent
+
+        Used for the preview in the main window and for the NDI output. Unlike grab(), this does not fill the image
+        with the window's default background first, so a transparent background stays transparent
+
+        """
+
+        pixel_ratio = self.devicePixelRatioF()
+        image = QImage(round(self.width() * pixel_ratio), round(self.height() * pixel_ratio),
+                       QImage.Format.Format_ARGB32_Premultiplied)
+        image.setDevicePixelRatio(pixel_ratio)
+        image.fill(Qt.GlobalColor.transparent)
+
+        self.render(image, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+
+        return image
 
     def show_timer(self):
         """ Show timer window in full screen"""
@@ -304,6 +523,7 @@ class TimerWindow(QWidget):
 
         """
 
+        self.position_labels()
         self.window_update_signal.emit()
 
     def add_flash_effect(self):

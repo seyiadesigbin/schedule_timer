@@ -26,11 +26,13 @@ class ExportSchedule:
             items_count += 1
 
             session_title = schedule_item.get_session_title()
+            minister_name = schedule_item.get_minister_name()
             minutes = schedule_item.get_minutes()
             seconds = schedule_item.get_seconds()
 
             self.schedule_list[items_count] = {
                 'Session Title': session_title,
+                'Minister': minister_name,
                 'Minutes': minutes,
                 'Seconds': seconds,
             }

@@ -1,5 +1,5 @@
 *{
-    font-family: Arial;
+    font-family: Barlow;
     color: white;
     padding: 5px;
 }

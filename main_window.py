@@ -1,17 +1,18 @@
 import webbrowser
 import os
 from PySide6.QtCore import QTimer, QSize
-from PySide6.QtGui import QIcon, QAction, QPixmap, QScreen
+from PySide6.QtGui import QIcon, QAction, QPixmap, QScreen, QColor, QPainter, QBrush
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QMainWindow, QApplication, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QWidget,
                                QGroupBox, QFormLayout, QPushButton, QScrollArea, QToolBar, QDialog, QMessageBox,
-                               QSizePolicy, QStatusBar)
-from timer_window import TimerWindow  # Import timer window module
+                               QSizePolicy, QStatusBar, QColorDialog, QFileDialog)
+from timer_window import TimerWindow, DEFAULT_BACKGROUND_COLOR  # Import timer window module
 from schedule_item_interface import ScheduleItem
 from toolbar_interface import AboutDialog, CreditsDialog  # Import About and Credits windows
 from globals import *
 from export_schedule import ExportSchedule
 from import_schedule import ImportSchedule
+from ndi_output import NdiOutput, NDI_IS_AVAILABLE, NDI_SOURCE_NAME, NDI_FRAME_WIDTH, NDI_FRAME_HEIGHT
 
 ADD_TIME = ["+15s", "+30s", "+1m", "+5m", "+15m", "+30m"]
 MINUS_TIME = ["-15s", "-30s", "-1m", "-5m", "-15m", "-30m"]
@@ -21,6 +22,22 @@ MAIN_WINDOW_STYLESHEET_FILE_NAME = "main_window_stylesheet.qss"
 TIMER_WINDOW_STYLESHEET_FILE_NAME = "timer_window_stylesheet.qss"
 
 buttons_style = """padding: 5px 10px 5px 10px"""
+
+# Timer window background options. Preset colors are applied directly, the others open a picker
+BACKGROUND_PRESETS = {
+    "Dark": DEFAULT_BACKGROUND_COLOR,
+    "Black": "#000000",
+    "Green Screen": "#00B140",
+    "Blue Screen": "#0047BB",
+}
+BACKGROUND_CUSTOM_COLOR = "Custom Color..."
+BACKGROUND_IMAGE = "Image..."
+BACKGROUND_TRANSPARENT = "Transparent"
+
+COLOR_DIALOG_STYLE = """
+    QColorDialog { background-color: #2B2D30; }
+    QSpinBox, QLineEdit { background-color: #1E1E1E; color: white; }
+"""
 
 
 class MainWindow(QMainWindow):
@@ -40,7 +57,7 @@ class MainWindow(QMainWindow):
 
         # Set up window basic settings
         self.setWindowTitle(APP_TITLE)
-        self.setFixedSize(700, 700)
+        self.setFixedSize(700, 780)
         self.setObjectName("mainWindow")
         self.setWindowIcon(QIcon(APP_ICON_DIR))
 
@@ -53,6 +70,10 @@ class MainWindow(QMainWindow):
         self.timer_window.time_up_flash_signal.connect(self.update_timer_preview_window)
         self.timer_window.display_shortcut_signal.connect(self.activate_live_display_shortcut)
         self.timer_window.timer_window_destroyed_signal.connect(lambda: self.live_display_button.setChecked(False))
+
+        # Create NDI output object, to broadcast the timer display over the network
+        self.ndi_output = NdiOutput()
+        self.ndi_output.connections_changed_signal.connect(self.update_ndi_button_text)
 
         self.available_monitors = app.screens()  # Get the list of available monitors
 
@@ -154,8 +175,8 @@ class MainWindow(QMainWindow):
         settings_group_box.setObjectName("displaySettingsBox")
         settings_group_box.setMaximumWidth(250)
         settings_group_box.setMinimumWidth(250)
-        settings_group_box.setMinimumHeight(250)
-        settings_group_box.setMaximumHeight(250)
+        settings_group_box.setMinimumHeight(330)
+        settings_group_box.setMaximumHeight(330)
 
         settings_layout = QFormLayout()
 
@@ -179,6 +200,35 @@ class MainWindow(QMainWindow):
         #     self.live_display_button.setChecked(True)
         #     # self.update_timer_preview_window()
 
+        # NDI output row
+        ndi_output_label = QLabel("NDI Output")
+        self.ndi_button = QPushButton("NDI")
+        self.ndi_button.setCheckable(True)
+        self.ndi_button.setToolTip(f'Broadcast the timer display as the "{NDI_SOURCE_NAME}" NDI source')
+        self.ndi_button.toggled.connect(self.ndi_button_toggled)
+
+        # Disable the NDI button if the NDI library is not installed
+        if not NDI_IS_AVAILABLE:
+            self.ndi_button.setEnabled(False)
+            self.ndi_button.setToolTip("Install ndi-python to enable NDI output")
+
+        # Timer window background row
+        background_label = QLabel("Background")
+        self.background_dropdown = QComboBox()
+        self.background_dropdown.addItems([*BACKGROUND_PRESETS, BACKGROUND_CUSTOM_COLOR, BACKGROUND_IMAGE,
+                                           BACKGROUND_TRANSPARENT])
+        self.background_dropdown.setToolTip("Transparent sends an alpha channel over NDI, for keying in OBS or vMix")
+        self.background_dropdown.activated.connect(self.background_selected)  # Also fires when re-selecting an item
+        self.current_background_index = 0
+
+        # "Ministering Now" display row
+        minister_label = QLabel("Minister")
+        self.show_minister_button = QPushButton("Show")
+        self.show_minister_button.setCheckable(True)
+        self.show_minister_button.setChecked(True)
+        self.show_minister_button.setToolTip("Show 'Ministering Now' and the minister's name under the timer")
+        self.show_minister_button.toggled.connect(self.timer_window.set_minister_enabled)
+
         # Time up label display row
         display_time_up_label = QLabel("Time Up Alert")
         self.show_time_up_button = QPushButton("Show")
@@ -196,6 +246,9 @@ class MainWindow(QMainWindow):
         # Add widgets to form layout
         settings_layout.addRow(monitor_label, self.displays_dropdown)
         settings_layout.addRow(timer_live_label, self.live_display_button)
+        settings_layout.addRow(ndi_output_label, self.ndi_button)
+        settings_layout.addRow(background_label, self.background_dropdown)
+        settings_layout.addRow(minister_label, self.show_minister_button)
         settings_layout.addRow(display_time_up_label, time_up_display_options)
         settings_layout.setSpacing(10)
 
@@ -206,7 +259,7 @@ class MainWindow(QMainWindow):
     def create_timer_preview_group(self, widget):
         """Creates the timer preview box"""
         preview_group = QGroupBox("Output Preview")
-        preview_group.setMaximumHeight(250)
+        preview_group.setMaximumHeight(330)
 
         timer_window_style = load_stylesheet(TIMER_WINDOW_STYLESHEET_FILE_NAME)  # Load the timer window's stylesheet
 
@@ -359,6 +412,7 @@ class MainWindow(QMainWindow):
         new_schedule_item.pause_button.clicked.connect(lambda: self.pause_resume_timer(new_schedule_item))
         new_schedule_item.resume_button.clicked.connect(lambda: self.resume_timer(new_schedule_item))
         new_schedule_item.session_title_input.textChanged.connect(lambda: self.update_session_title(new_schedule_item))
+        new_schedule_item.minister_input.textChanged.connect(lambda: self.update_minister_name(new_schedule_item))
 
         new_schedule_item.visibility_toggle_signal.connect(lambda: self.toggle_button_is_clicked(new_schedule_item))
 
@@ -424,6 +478,7 @@ class MainWindow(QMainWindow):
                             # For each key in the data to be imported, create/add a new schedule item and update its title and time values accordingly
                             for schedule_item_id in schedule_to_import:
                                 session_title = schedule_to_import[schedule_item_id]["Session Title"]
+                                minister_name = schedule_to_import[schedule_item_id].get("Minister", "")
                                 minutes = schedule_to_import[schedule_item_id]["Minutes"]
                                 seconds = schedule_to_import[schedule_item_id]["Seconds"]
 
@@ -433,6 +488,7 @@ class MainWindow(QMainWindow):
                                 index = int(schedule_item_id) - 1
 
                                 self.schedule_items[index].session_title_input.setText(session_title)
+                                self.schedule_items[index].minister_input.setText(minister_name)
                                 self.schedule_items[index].minutes_input.setText(str(minutes))
                                 self.schedule_items[index].seconds_input.setText(str(seconds))
 
@@ -499,9 +555,10 @@ class MainWindow(QMainWindow):
 
         self.running_seconds = schedule_item.get_timer_value()  # Get the total seconds inputted
         session_title = schedule_item.get_session_title()  # Get the session title
+        minister_name = schedule_item.get_minister_name()  # Get the minister's name
 
         self.timer_window.set_timer_window_values(self.running_seconds,
-                                                  session_title)  # Update the timer window with the set
+                                                  session_title, minister_name)  # Update the timer window with the set
         # time values
 
         # Update the timer preview window to show the newly set timer values
@@ -628,6 +685,15 @@ class MainWindow(QMainWindow):
             session_title = schedule_item.session_title_input.text()
             self.timer_window.update_session_label(session_title)
 
+    def update_minister_name(self, schedule_item):
+        """Updates the minister's name of the active schedule, in the timer window
+
+        This function is called when the text in the minister input field of a schedule is updated
+
+        """
+        if self.timer_window.active_schedule == schedule_item:
+            self.timer_window.set_minister_name(schedule_item.get_minister_name())
+
     def update_timer_preview_window(self):
         """Updates the timer preview window with a live snapshot of the running timer
 
@@ -636,14 +702,82 @@ class MainWindow(QMainWindow):
 
         """
 
-        widget = self.timer_window
-        pixmap = widget.grab()
+        snapshot = self.timer_window.snapshot()
+        is_transparent = self.timer_window.background_is_transparent
+
+        # Send the snapshot to NDI receivers
+        if self.ndi_output.is_running():
+            self.ndi_output.update_frame(snapshot, self.timer_window.background_color, is_transparent)
 
         # # pixmap = pixmap.scaledToWidth(200)
         # # pixmap = pixmap.scaledToHeight(200)
-        pixmap = pixmap.scaled(400, 400, Qt.KeepAspectRatio, Qt.FastTransformation)
+        pixmap = QPixmap.fromImage(snapshot).scaled(400, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        # Show a checkerboard behind a transparent background, so it is clear which parts are see-through
+        if is_transparent:
+            pixmap = self.add_checkerboard_background(pixmap)
 
         self.timer_window_preview_label.setPixmap(pixmap)
+
+    @staticmethod
+    def add_checkerboard_background(pixmap: QPixmap) -> QPixmap:
+        """Draws a pixmap over a checkerboard pattern"""
+
+        tile = QPixmap(16, 16)
+        tile.fill(QColor("#3A3A3A"))
+        tile_painter = QPainter(tile)
+        tile_painter.fillRect(0, 0, 8, 8, QColor("#555555"))
+        tile_painter.fillRect(8, 8, 8, 8, QColor("#555555"))
+        tile_painter.end()
+
+        result = QPixmap(pixmap.size())
+        result.setDevicePixelRatio(pixmap.devicePixelRatio())
+        painter = QPainter(result)
+        painter.fillRect(result.rect(), QBrush(tile))
+        painter.drawPixmap(0, 0, pixmap)
+        painter.end()
+
+        return result
+
+    def background_selected(self, index):
+        """Applies the background chosen in the background dropdown to the timer window
+
+        For a custom color or an image, a picker is opened. If the picker is cancelled, the dropdown goes back to the
+        previous selection
+
+        """
+
+        choice = self.background_dropdown.itemText(index)
+
+        if choice in BACKGROUND_PRESETS:
+            self.timer_window.set_background_color(QColor(BACKGROUND_PRESETS[choice]))
+
+        elif choice == BACKGROUND_CUSTOM_COLOR:
+            color_dialog = QColorDialog(self.timer_window.background_color, self)
+            color_dialog.setWindowTitle("Select Background Color")
+            color_dialog.setStyleSheet(COLOR_DIALOG_STYLE)  # The app stylesheet makes labels white, so darken it
+
+            color = color_dialog.selectedColor() if color_dialog.exec() else QColor()
+            if not color.isValid():
+                self.background_dropdown.setCurrentIndex(self.current_background_index)
+                return
+            self.timer_window.set_background_color(color)
+
+        elif choice == BACKGROUND_IMAGE:
+            file_path, _ = QFileDialog.getOpenFileName(self, "Select Background Image", str(Path.home()),
+                                                       "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
+            image = QPixmap(file_path) if file_path else QPixmap()
+            if image.isNull():
+                if file_path:
+                    QMessageBox.warning(self, "Image Error", "The selected image could not be opened.")
+                self.background_dropdown.setCurrentIndex(self.current_background_index)
+                return
+            self.timer_window.set_background_image(image)
+
+        elif choice == BACKGROUND_TRANSPARENT:
+            self.timer_window.set_background_transparent()
+
+        self.current_background_index = index
 
     def get_selected_monitor(self, selected_monitor) -> object:
         """Gets the currently selected monitor object, using its name attribute"""
@@ -690,6 +824,37 @@ class MainWindow(QMainWindow):
             self.timer_window.show_timer()
         else:
             self.timer_window.hide()
+
+    def ndi_button_toggled(self):
+        """Starts or stops broadcasting the timer display as an NDI source
+
+        This function is called whenever the "NDI" button is toggled
+
+        """
+
+        if self.ndi_button.isChecked():
+
+            # Give the timer window a full HD size while it is not shown on a monitor, so the NDI output is laid out
+            # the same way as a full screen display
+            if not self.timer_window.isVisible():
+                self.timer_window.resize(NDI_FRAME_WIDTH, NDI_FRAME_HEIGHT)
+
+            if self.ndi_output.start():
+                self.update_timer_preview_window()  # Send the current display as the first frame
+            else:
+                self.ndi_button.setChecked(False)
+                QMessageBox.warning(self, "NDI Error",
+                                    "Could not start the NDI output. Make sure the NDI Runtime is installed.")
+        else:
+            self.ndi_output.stop()
+
+    def update_ndi_button_text(self, connections):
+        """Shows the number of receivers connected to the NDI source on the NDI button"""
+
+        if connections > 0:
+            self.ndi_button.setText(f"NDI ({connections})")
+        else:
+            self.ndi_button.setText("NDI")
 
     def toggle_button_is_clicked(self, schedule_item):
         """Shows or hides the session title label when the schedule's title display button is toggled"""
@@ -801,9 +966,11 @@ class MainWindow(QMainWindow):
 
             if confirm_exit_dialog == QMessageBox.Yes:
                 event.accept()
+                self.ndi_output.stop()  # Remove the NDI source from the network
                 self.timer_window.close()  # Close active timer window
             elif confirm_exit_dialog == QMessageBox.No:
                 event.ignore()
         else:
+            self.ndi_output.stop()  # Remove the NDI source from the network
             self.timer_window.close()  # Close active timer window
 
