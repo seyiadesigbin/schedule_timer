@@ -7,6 +7,8 @@ PARENT_DIR = Path(__file__).parent.resolve()  # Get the directory the program is
 RESOURCES_DIR = Path(PARENT_DIR / "resources")
 STYLESHEET_DIR = Path(RESOURCES_DIR / "stylesheets")
 ICONS_DIR = Path(RESOURCES_DIR / "icons")
+FONTS_DIR = Path(RESOURCES_DIR / "fonts")
+APP_FONT_FAMILY = "Barlow"  # Bundled in the fonts directory, so it does not need to be installed on the system
 APP_TITLE = "ScheduleTimer- Beta Version"
 APP_VERSION = "v1.0"
 
@@ -55,6 +57,19 @@ def load_stylesheet(stylesheet_file_name) -> str:
     with open(file_dir, mode="r") as stylesheet_file:
         stylesheet = stylesheet_file.read()
         return stylesheet
+
+
+def load_fonts():
+    """Registers the bundled font files with the application, so they can be used by name in stylesheets
+
+    Must be called after the QApplication is created
+
+    """
+
+    from PySide6.QtGui import QFontDatabase
+
+    for font_file in FONTS_DIR.glob("*.ttf"):
+        QFontDatabase.addApplicationFont(str(font_file))
 
 def get_default_save_dir():
     """Returns the path to the user's documents directory"""

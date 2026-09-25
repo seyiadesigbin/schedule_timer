@@ -1,6 +1,6 @@
 /* Set the default font family of the texts */
 *{
-    font-family: 'Arial';
+    font-family: 'Barlow';
 }
 
 /* Set the font color of these following widgets */

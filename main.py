@@ -1,7 +1,7 @@
 import sys
 from main_window import MainWindow
 from PySide6.QtWidgets import QApplication
-from globals import load_stylesheet
+from globals import load_stylesheet, load_fonts
 
 APP_STYLESHEET_FILE_NAME = "app_stylesheet.qss"
 
@@ -15,6 +15,7 @@ stylesheet = load_stylesheet(APP_STYLESHEET_FILE_NAME)
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
+    load_fonts()
 
     # app.setStyle('Fusion')
     app.setStyleSheet(stylesheet)
