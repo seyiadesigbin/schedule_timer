@@ -17,6 +17,16 @@ I built this project to solve a practical problem I have seen in live events: th
 - Export schedule data to a local file for reuse.
 - Use keyboard shortcut `Ctrl + L` to toggle live display mode.
 
+## Screenshots
+
+### Main Control Window With Multiple Schedule Items
+
+![ScheduleTimer control window with multiple speaker schedule rows, live output preview, monitor selection, and time-up alert controls.](docs/screenshots/main-control-window-schedule.png)
+
+### Main Control Window Initial State
+
+![ScheduleTimer control window showing the initial schedule row, display settings, and output preview at 00:00.](docs/screenshots/main-control-window-initial-state.png)
+
 ## Why This Project Is Useful
 
 ScheduleTimer is designed for environments where timing has to stay visible and reliable, such as:
@@ -130,7 +140,7 @@ This is a beta version. The core timer, schedule controls, live display, preview
 - Add packaged builds for easier installation.
 - Add drag-and-drop schedule reordering.
 - Add optional sound alerts when time is up.
-- Add screenshots or a short demo video to show the live display workflow.
+- Add a short demo video to show the live display workflow.
 
 ## Author
 
