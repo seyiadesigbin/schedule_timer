@@ -32,7 +32,7 @@ about ScheduleTimer and choose **Open Anyway**.
   current item to its full time.
 - **+** and **-** add or remove a minute while the timer runs.
 - The timer turns amber as time runs low and red in overtime. You can set when the warning
-  starts, and choose whether to show a "Time up" message, flash the screen or play alert sounds,
+  starts, and choose whether to show a "Time up" message, flash the time or play alert sounds,
   in **Settings** (Ctrl+, or Cmd+,).
 
 The single-key shortcuts work whenever the cursor is not in a text field. **Help > Keyboard
@@ -57,8 +57,12 @@ moments when the audience should not see it. Press it again to bring the timer b
 - **File > Save** (Ctrl+S, or Cmd+S) saves the schedule as a `.stschedule` file.
 - **File > Open** opens a saved schedule. It also imports schedules from version 1 (`.sch`
   files).
-- If the app closes unexpectedly, your schedule comes back the next time you open it. Save to a
-  file anyway before an event.
+- The app opens with a blank schedule. To continue with your last schedule instead, open
+  **Settings** and choose **Last schedule** under **When the app opens**.
+- If you closed the app normally and want your last schedule back, choose **File > Reopen Previous
+  Schedule**.
+- If the app closes unexpectedly, your schedule comes back the next time you open it, whichever
+  setting you chose. Save to a file anyway before an event.
 
 ## Beta end date and updates
 
