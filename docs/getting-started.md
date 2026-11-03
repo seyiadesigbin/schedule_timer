@@ -66,7 +66,7 @@ moments when the audience should not see it. Press it again to bring the timer b
 
 ## Beta end date and updates
 
-- The beta stops working **90 days after the build date**. From 14 days before that, the app
+- Beta 1 stops working after **31 March 2027**. From 14 days before that, the app
   warns you when it starts and offers a link to the releases page. After the date it opens that
   page and closes. The warning shows the exact date.
 - There are no automatic updates yet. When a new beta comes out, download and install it over the
